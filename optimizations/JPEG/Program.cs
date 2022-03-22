@@ -39,13 +39,13 @@ namespace JPEG
 				}
 
 				sw.Stop();
-				Console.WriteLine("Compression: " + sw.Elapsed);
+				Console.WriteLine("Compression: " + sw.ElapsedMilliseconds);
 				sw.Restart();
 				var compressedImage = CompressedImage.Load(compressedFileName);
 				var uncompressedImage = Uncompress(compressedImage);
 				var resultBmp = (Bitmap) uncompressedImage;
 				resultBmp.Save(uncompressedFileName, ImageFormat.Bmp);
-				Console.WriteLine("Decompression: " + sw.Elapsed);
+				Console.WriteLine("Decompression: " + sw.ElapsedMilliseconds);
 				Console.WriteLine($"Peak commit size: {MemoryMeter.PeakPrivateBytes() / (1024.0*1024):F2} MB");
 				Console.WriteLine($"Peak working set: {MemoryMeter.PeakWorkingSet() / (1024.0*1024):F2} MB");
 			}
