@@ -1,68 +1,97 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Threading.Tasks;
 using JPEG.Utilities;
 
 namespace JPEG
 {
 	public class DCT
 	{
-		public static double[,] DCT2D(double[,] input)
-		{
-			var height = input.GetLength(0);
+        private static readonly Vector<double> pi =
+            new Vector<double>(new[] { Math.PI, Math.PI, 0, 0 });
+        private static readonly Vector<double> vDivider =
+            new Vector<double>(new[] { 8d, 8d, 0, 0 });
+
+        /// <summary>
+        /// Input Must be square array with width and height == 8
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static double[,] DCT2D(double[,] input)
+        {
 			var width = input.GetLength(1);
-			var coeffs = new double[width, height];
 
-			MathEx.LoopByTwoVariables(
-				0, width,
-				0, height,
-				(u, v) =>
-				{
-					var sum = MathEx
-						.SumByTwoVariables(
-							0, width,
-							0, height,
-							(x, y) => BasisFunction(input[x, y], u, v, x, y, height, width));
+            var coeffs = new double[width, width];
+            MathEx.LoopByTwoVariables(
+				width, (u, v) =>
+                {
+                    var sum = MathEx
+                        .SumByTwoVariables(
+                            width,
+                            (x, y) => BasisFunction(input[x, y], u, v, x, y));
 
-					coeffs[u, v] = sum * Beta(height, width) * Alpha(u) * Alpha(v);
-				});
-			
+                    coeffs[u, v] =beta8 * Alpha(u) * Alpha(v) * sum;
+                });
 			return coeffs;
 		}
 
+        /// <summary>
+        /// Coeffs Must be square array with width and height == 8
+        /// </summary>
+        /// <returns></returns>
 		public static void IDCT2D(double[,] coeffs, double[,] output)
 		{
-			for(var x = 0; x < coeffs.GetLength(1); x++)
-			{
-				for(var y = 0; y < coeffs.GetLength(0); y++)
-				{
-					var sum = MathEx
-						.SumByTwoVariables(
-							0, coeffs.GetLength(1),
-							0, coeffs.GetLength(0),
-							(u, v) => BasisFunction(coeffs[u, v], u, v, x, y, coeffs.GetLength(0), coeffs.GetLength(1)) * Alpha(u) * Alpha(v));
+            var len0 = coeffs.GetLength(0);
 
-					output[x, y] = sum * Beta(coeffs.GetLength(0), coeffs.GetLength(1));
-				}
-			}
-		}
+            var tasks = new List<Task>();
 
-		public static double BasisFunction(double a, double u, double v, double x, double y, int height, int width)
-		{
-			var b = Math.Cos(((2d * x + 1d) * u * Math.PI) / (2 * width));
-			var c = Math.Cos(((2d * y + 1d) * v * Math.PI) / (2 * height));
+            for (var x = 0; x < len0; x++)
+            {
+                for (var y = 0; y < len0; y++)
+                {
+                    var x1 = x;
+                    var y1 = y;
+                    var t = Task.Run(() => SumByTwoVariables(output, coeffs, len0, x1, y1));
+                    tasks.Add(t);
+                }
+            }
 
-			return a * b * c;
-		}
+            Task.WaitAll(tasks.ToArray());
+        }
 
-		private static double Alpha(int u)
+        private static void SumByTwoVariables
+            (double[,] output, double[,] coeffs, int len0, int x, int y)
+        {
+                var sum = MathEx
+                    .SumByTwoVariables(
+                        len0,
+                        (u, v) => BasisFunction(coeffs[u, v], u, v, x, y) * Alpha(u) * Alpha(v));
+
+                output[x, y] = sum * beta8;
+        }
+
+        public static double BasisFunction(double a, double u, double v, double x, double y)
+        {
+            var v1 = new Vector<double>(new []{ x + 0.5, y + 0.5, 0, 0 });
+            var v2 = new Vector<double>(new[] {u, v, 0, 0 });
+
+            var v5 = Vector.Multiply(v1, Vector.Multiply(v2, pi));
+            var res = Vector.Divide(v5, vDivider);
+            var b = Math.Cos(res[0]);
+            var c = Math.Cos(res[1]);
+
+            return a * b * c;
+		}   
+
+        private const double beta8 = 2d / 8;
+        private static readonly double alpha = 1 / Math.Sqrt(2);
+
+        private static double Alpha(int u)
 		{
 			if(u == 0)
-				return 1 / Math.Sqrt(2);
+				return alpha;
 			return 1;
 		}
-
-		private static double Beta(int height, int width)
-		{
-			return 1d / width + 1d / height;
-		}
-	}
+    }
 }

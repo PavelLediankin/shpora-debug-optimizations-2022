@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using JPEG.Utilities;
@@ -76,108 +78,171 @@ namespace JPEG
 		}
 	}
 
-	class HuffmanCodec
-	{
-		public static byte[] Encode(IEnumerable<byte> data, out Dictionary<BitsWithLength, byte> decodeTable, out long bitsCount)
-		{
-			var frequences = CalcFrequences(data);
+    class HuffmanCodec
+    {
+        public static byte[] Encode(IEnumerable<byte> data, out Dictionary<BitsWithLength, byte> decodeTable,
+            out long bitsCount)
+        {
+            var frequences = CalcFrequences(data);
 
-			var root = BuildHuffmanTree(frequences);
+            var root = BuildHuffmanTree(frequences);
 
-			var encodeTable = new BitsWithLength[byte.MaxValue + 1];
-			FillEncodeTable(root, encodeTable);
+            var encodeTable = new BitsWithLength[byte.MaxValue + 1];
+            FillEncodeTable(root, encodeTable);
 
-			var bitsBuffer = new BitsBuffer();
-			foreach(var b in data)
-				bitsBuffer.Add(encodeTable[b]);
+            var bitsBuffer = new BitsBuffer();
+            foreach (var b in data)
+                bitsBuffer.Add(encodeTable[b]);
 
-			decodeTable = CreateDecodeTable(encodeTable);
+            decodeTable = CreateDecodeTable(encodeTable);
 
-			return bitsBuffer.ToArray(out bitsCount);
-		}
+            return bitsBuffer.ToArray(out bitsCount);
+        }
 
-		public static byte[] Decode(byte[] encodedData, Dictionary<BitsWithLength, byte> decodeTable, long bitsCount)
-		{
-			var result = new List<byte>();
+        public static byte[] Decode(byte[] encodedData, Dictionary<BitsWithLength, byte> decodeTable, long bitsCount)
+        {
+            var result = new List<byte>();
 
-			byte decodedByte;
-			var sample = new BitsWithLength { Bits = 0, BitsCount = 0 };
-			for(var byteNum = 0; byteNum < encodedData.Length; byteNum++)
-			{
-				var b = encodedData[byteNum];
-				for(var bitNum = 0; bitNum < 8 && byteNum * 8 + bitNum < bitsCount; bitNum++)
-				{
-					sample.Bits = (sample.Bits << 1) + ((b & (1 << (8 - bitNum - 1))) != 0 ? 1 : 0);
-					sample.BitsCount++;
+            byte decodedByte;
+            var sample = new BitsWithLength {Bits = 0, BitsCount = 0};
+            for (var byteNum = 0; byteNum < encodedData.Length; byteNum++)
+            {
+                var b = encodedData[byteNum];
+                for (var bitNum = 0; bitNum < 8 && byteNum * 8 + bitNum < bitsCount; bitNum++)
+                {
+                    sample.Bits = (sample.Bits << 1) + ((b & (1 << (8 - bitNum - 1))) != 0 ? 1 : 0);
+                    sample.BitsCount++;
 
-					if(decodeTable.TryGetValue(sample, out decodedByte))
-					{
-						result.Add(decodedByte);
+                    if (decodeTable.TryGetValue(sample, out decodedByte))
+                    {
+                        result.Add(decodedByte);
 
-						sample.BitsCount = 0;
-						sample.Bits = 0;
-					}
-				}
-			}
-			return result.ToArray();
-		}
+                        sample.BitsCount = 0;
+                        sample.Bits = 0;
+                    }
+                }
+            }
 
-		private static Dictionary<BitsWithLength, byte> CreateDecodeTable(BitsWithLength[] encodeTable)
-		{
-			var result = new Dictionary<BitsWithLength, byte>(new BitsWithLength.Comparer());
-			for(int b = 0; b < encodeTable.Length; b++)
-			{
-				var bitsWithLength = encodeTable[b];
-				if(bitsWithLength == null)
-					continue;
+            return result.ToArray();
+        }
 
-				result[bitsWithLength] = (byte) b;
-			}
-			return result;
-		}
+        private static Dictionary<BitsWithLength, byte> CreateDecodeTable(BitsWithLength[] encodeTable)
+        {
+            var result = new Dictionary<BitsWithLength, byte>(new BitsWithLength.Comparer());
+            for (int b = 0; b < encodeTable.Length; b++)
+            {
+                var bitsWithLength = encodeTable[b];
+                if (bitsWithLength == null)
+                    continue;
 
-		private static void FillEncodeTable(HuffmanNode node, BitsWithLength[] encodeSubstitutionTable, int bitvector = 0, int depth = 0)
-		{
-			if(node.LeafLabel != null)
-				encodeSubstitutionTable[node.LeafLabel.Value] = new BitsWithLength {Bits = bitvector, BitsCount = depth};
-			else
-			{
-				if(node.Left != null)
-				{
-					FillEncodeTable(node.Left, encodeSubstitutionTable, (bitvector << 1) + 1, depth + 1);
-					FillEncodeTable(node.Right, encodeSubstitutionTable, (bitvector << 1) + 0, depth + 1);
-				}
-			}
-		}
+                result[bitsWithLength] = (byte) b;
+            }
 
-		private static HuffmanNode BuildHuffmanTree(int[] frequences)
-		{
-			var nodes = GetNodes(frequences);
-			
-			while(nodes.Count() > 1)
-			{
-				var firstMin = nodes.MinOrDefault(node => node.Frequency);
-				nodes = nodes.Without(firstMin);
-				var secondMin = nodes.MinOrDefault(node => node.Frequency);
-				nodes = nodes.Without(secondMin);
-				nodes = nodes.Concat(new HuffmanNode {Frequency = firstMin.Frequency + secondMin.Frequency, Left = secondMin, Right = firstMin }.ToEnumerable());
-			}
-			return nodes.First();
-		}
+            return result;
+        }
 
-		private static IEnumerable<HuffmanNode> GetNodes(int[] frequences)
-		{
-			return Enumerable.Range(0, byte.MaxValue + 1)
-				.Select(num => new HuffmanNode {Frequency = frequences[num], LeafLabel = (byte) num})
-				.Where(node => node.Frequency > 0)
-				.ToArray();
-		}
+        private static void FillEncodeTable(HuffmanNode node, BitsWithLength[] encodeSubstitutionTable,
+            int bitvector = 0, int depth = 0)
+        {
+            if (node.LeafLabel != null)
+                encodeSubstitutionTable[node.LeafLabel.Value] =
+                    new BitsWithLength {Bits = bitvector, BitsCount = depth};
+            else
+            {
+                if (node.Left != null)
+                {
+                    FillEncodeTable(node.Left, encodeSubstitutionTable, (bitvector << 1) + 1, depth + 1);
+                    FillEncodeTable(node.Right, encodeSubstitutionTable, (bitvector << 1) + 0, depth + 1);
+                }
+            }
+        }
 
-		private static int[] CalcFrequences(IEnumerable<byte> data)
-		{
-			var result = new int[byte.MaxValue + 1];
-			Parallel.ForEach(data, b => Interlocked.Increment(ref result[b]));
-			return result;
-		}
-	}
+        private static HuffmanNode BuildHuffmanTree(int[] frequences)
+        {
+            var nodes = GetNodes(frequences);
+
+            while (nodes.Length > 1)
+            {
+                var (firstMin, secondMin) = GetTwoMinNodes(nodes, out var min1, out var min2);
+                nodes = AddNodeAndDeleteOld(nodes, min1, min2, new HuffmanNode
+                    { Frequency = firstMin.Frequency + secondMin.Frequency, Left = secondMin, Right = firstMin });
+            }
+
+            return nodes.First();
+        }
+
+        private static HuffmanNode[] GetNodes(int[] frequences)
+        {
+            var len = byte.MaxValue + 1;
+            var nodes = new List<HuffmanNode>();
+            for (var i = 0; i < len; i++)
+            {
+                if (frequences[i] > 0)
+                    nodes.Add(new HuffmanNode {Frequency = frequences[i], LeafLabel = (byte) i});
+            }
+
+            return nodes.ToArray();
+            /*
+            return Enumerable.Range(0, byte.MaxValue + 1)
+                .Select(num => new HuffmanNode {Frequency = frequences[num], LeafLabel = (byte) num})
+                .Where(node => node.Frequency > 0)
+                .ToArray();
+            */
+        }
+
+        private static int[] CalcFrequences(IEnumerable<byte> data)
+        {
+            var result = new int[byte.MaxValue + 1];
+            Parallel.ForEach(data, b => Interlocked.Increment(ref result[b]));
+            return result;
+        }
+
+        private static (HuffmanNode, HuffmanNode) GetTwoMinNodes(HuffmanNode[] nodes, out int min1, out int min2)
+        {
+            var firstMin = nodes[0];
+            var secondMin = nodes[1];
+            min1 = 0;
+            min2 = 1;
+            for (var i = 2; i < nodes.Length; i++)
+            {
+                if (secondMin.Frequency <= nodes[i].Frequency)
+                    continue;
+                if (firstMin.Frequency > nodes[i].Frequency)
+                {
+                    secondMin = firstMin;
+                    min2 = min1;
+                    firstMin = nodes[i];
+                    min1 = i;
+                }
+                else
+                {
+                    secondMin = nodes[i];
+                    min2 = i;
+                }
+            }
+
+            if (firstMin.Frequency <= secondMin.Frequency)
+                return (firstMin, secondMin);
+
+            (min1, min2) = (min2, min1);
+            return (secondMin, firstMin);
+        }
+
+        private static HuffmanNode[] AddNodeAndDeleteOld(HuffmanNode[] nodes, int firstIndex, int secondIndex, HuffmanNode node)
+        {
+            var result = new HuffmanNode[nodes.Length - 1];
+            var k = 0;
+            for (var i = 0; i < nodes.Length; i++)
+            {
+                if (i == firstIndex || i == secondIndex)
+                    continue;
+                result[k] = nodes[i];
+                k++;
+            }
+
+            result[^1] = node;
+
+            return result;
+        }
+    }
 }

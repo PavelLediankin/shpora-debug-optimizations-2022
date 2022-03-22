@@ -4,7 +4,7 @@ using System.IO;
 
 namespace JPEG
 {
-	public class CompressedImage
+	public struct CompressedImage
 	{
 		public int Width { get; set; }
 		public int Height { get; set; }

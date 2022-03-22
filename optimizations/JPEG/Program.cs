@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Diagnostics;
+using System.Threading.Tasks;
 using JPEG.Images;
 using PixelFormat = JPEG.Images.PixelFormat;
 
@@ -61,17 +62,25 @@ namespace JPEG
 			for(var y = 0; y < matrix.Height; y += DCTSize)
 			{
 				for(var x = 0; x < matrix.Width; x += DCTSize)
-				{
+                {
+                    var tasks = new List<Task<IEnumerable<byte>>>();
 					foreach (var selector in new Func<Pixel, double>[] {p => p.Y, p => p.Cb, p => p.Cr})
 					{
-						var subMatrix = GetSubMatrix(matrix, y, DCTSize, x, DCTSize, selector);
-						ShiftMatrixValues(subMatrix, -128);
-						var channelFreqs = DCT.DCT2D(subMatrix);
-						var quantizedFreqs = Quantize(channelFreqs, quality);
-						var quantizedBytes = ZigZagScan(quantizedFreqs);
-						allQuantizedBytes.AddRange(quantizedBytes);
+						tasks.Add(Task.Run(() =>
+                        {
+                            var subMatrix = GetSubMatrix(matrix, y, DCTSize, x, DCTSize, selector);
+                            ShiftMatrixValues(subMatrix, -128);
+                            var channelFreqs = DCT.DCT2D(subMatrix);
+                            var quantizedFreqs = Quantize(channelFreqs, quality);
+                            return ZigZagScan(quantizedFreqs);
+                        }));
 					}
-				}
+                    Task.WaitAll(tasks.ToArray());
+                    foreach (var task in tasks)
+                    {
+						allQuantizedBytes.AddRange(task.Result);
+					}
+                }
 			}
 
 			long bitsCount;
@@ -100,7 +109,7 @@ namespace JPEG
 							allQuantizedBytes.ReadAsync(quantizedBytes, 0, quantizedBytes.Length).Wait();
 							var quantizedFreqs = ZigZagUnScan(quantizedBytes);
 							var channelFreqs = DeQuantize(quantizedFreqs, image.Quality);
-							DCT.IDCT2D(channelFreqs, channel);
+                            DCT.IDCT2D(channelFreqs, channel);
 							ShiftMatrixValues(channel, 128);
 						}
 						SetPixels(result, _y, cb, cr, PixelFormat.YCbCr, y, x);
@@ -140,7 +149,7 @@ namespace JPEG
 			return result;
 		}
 
-		private static IEnumerable<byte> ZigZagScan(byte[,] channelFreqs)
+        private static IEnumerable<byte> ZigZagScan(byte[,] channelFreqs)
 		{
 			return new[]
 			{

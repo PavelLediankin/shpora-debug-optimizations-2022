@@ -3,8 +3,10 @@ using System.Linq;
 
 namespace JPEG.Images
 {
-    public class Pixel
+    public struct Pixel
     {
+        public static Pixel RgbPixel = new Pixel(0, 0, 0, PixelFormat.RGB);
+
         private readonly PixelFormat format;
 
         public Pixel(double firstComponent, double secondComponent, double thirdComponent, PixelFormat pixelFormat)
@@ -12,18 +14,12 @@ namespace JPEG.Images
             if (!new[]{PixelFormat.RGB, PixelFormat.YCbCr}.Contains(pixelFormat))
                 throw new FormatException("Unknown pixel format: " + pixelFormat);
             format = pixelFormat;
-            if (pixelFormat == PixelFormat.RGB)
-            {
-                r = firstComponent;
-                g = secondComponent;
-                b = thirdComponent;
-            }
-            if (pixelFormat == PixelFormat.YCbCr)
-            {
-                y = firstComponent;
-                cb = secondComponent;
-                cr = thirdComponent;
-            }
+            r = firstComponent;
+            g = secondComponent;
+            b = thirdComponent;
+            y = firstComponent;
+            cb = secondComponent;
+            cr = thirdComponent;
         }
 
         private readonly double r;

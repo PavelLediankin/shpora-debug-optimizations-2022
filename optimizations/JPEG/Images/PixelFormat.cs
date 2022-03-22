@@ -9,8 +9,8 @@
             Format = format;
         }
 
-        public static PixelFormat RGB => new PixelFormat(nameof(RGB));
-        public static PixelFormat YCbCr => new PixelFormat(nameof(YCbCr));
+        public static readonly PixelFormat RGB = new PixelFormat(nameof(RGB));
+        public static readonly PixelFormat YCbCr = new PixelFormat(nameof(YCbCr));
 
         protected bool Equals(PixelFormat other)
         {
@@ -19,7 +19,8 @@
 
         public override bool Equals(object obj)
         {
-            if (obj.GetType() != this.GetType()) return false;
+            if (obj.GetType() != this.GetType()) 
+                return false;
             return Equals((PixelFormat) obj);
         }
 
